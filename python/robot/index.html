@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+
+<html>
+
+ <head>
+
+  <title>Myro Remote</title>
+
+  <meta name="viewport" content="user-scalable = no, initial-scale = 1.0,  width = device-width" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+  <script>
+function BlockMove(event) {
+ // Tell Safari not to move the window.
+ event.preventDefault() ;
+}
+  </script>
+
+  <style>
+div#pad {
+ width: 940px ;
+ height: 1390px ;
+ background: blue ;
+ font-size: 400% ;
+ margin-left: auto ;
+ margin-right: auto ;
+}
+  </style>
+
+ </head>
+
+ <body ontouchmove="BlockMove(event);" >
+
+  <div id="pad">
+  </div>
+ 
+  <script>
+var UpdatePeriod = 300 ; // milliseconds
+var LastTouch = 0 ;
+ 
+// The Y coordinate when the finger goes down:
+var InitY = 0 ;
+ 
+//  Is the user gesturing or touching?
+var InGesture = false ;
+ 
+// Last and current command:
+var LastCommand = {"action": "stop"} ;
+var Command     = LastCommand ;
+ 
+var Pad = document.getElementById("pad") ;
+ 
+function HttpSend(url) {
+  var req = new XMLHttpRequest() ;
+  req.open("GET", url, true) ;
+  req.send(null) ;
+}
+ 
+// Called periodically to issue commands:
+function UpdateRobot() {
+  if ((LastCommand.action == Command.action) &&
+      (LastCommand.speed  == Command.speed))
+    return ;
+  
+  Pad.innerHTML = Command.action + ": " + Command.speed ;
+ 
+  switch (Command.action) {
+    case "move":
+    case "spin":
+      HttpSend("/"+Command.action+"?speed=" +
+               encodeURIComponent(Command.speed)) ;
+      break ;
+ 
+    case "stop":
+      HttpSend("/stop") ;
+      break ;
+  }
+ 
+  LastCommand = Command ;
+}
+ 
+// Check for new actions at regular intervals:
+setInterval(UpdateRobot,UpdatePeriod) ;
+ 
+// Watch for touches and gestures:
+Pad.ontouchstart = function (event) {
+  var finger = event.touches[0] ;
+  InitY = finger.clientY ;
+  var newTouch = (new Date()).getTime() ;
+  LastTouch = newTouch ;
+} ;
+ 
+document.body.onorientationchange = function (event) {
+  Pad.style.backgroundImage = "url(./cam.gif?r="+Math.random()+")" ;
+} ;
+ 
+Pad.ontouchend = function (event) {
+  Command = {"action": "stop"} ;
+  var finger = event.touches[0] ;
+} ;
+ 
+Pad.ontouchmove = function (event) {
+  if (InGesture) return ;
+  var finger = event.touches[0] ;
+  var speed = (InitY - finger.clientY) / window.innerHeight ;
+  Command = {"action": "move", "speed": speed} ;
+} ;
+ 
+Pad.ongesturestart = function (event) {
+  InGesture = true ;
+} ;
+ 
+Pad.ongestureend = function (event) {
+  InGesture = false ;
+  Command = {"action": "stop"} ;
+} ;
+ 
+Pad.ongesturechange = function (event) {
+  var rotation = event.rotation ;
+  if (rotation < -180.0) rotation += 360.0 ;
+  if (rotation >  180.0) rotation -= 360.0 ;
+  Command = {"action": "spin", "speed": rotation / 180.0} ;
+} ;
+  </script>
+
+ </body>
+
+</html>
